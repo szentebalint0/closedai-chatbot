@@ -43,7 +43,7 @@ MODEL=your_chosen_model
 ```
 
 Required:
-- `DEFAULT_CONTEXT` (always injected as system context for every request)
+- `DEFAULT_CONTEXT` (always injected as system context for every request, you can leave it blank)
 
 ## 4. Run the API
 
