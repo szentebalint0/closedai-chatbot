@@ -4,7 +4,7 @@ Small FastAPI app with a streaming `POST /question` endpoint and a static `index
 
 ## 1. Prerequisites
 
-- Python 3.13+
+- Python 3.14+
 - `uv` installed
 
 Install `uv` (Windows PowerShell):
