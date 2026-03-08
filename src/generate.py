@@ -5,6 +5,7 @@ from typing import Any
 from openai_config import get_llm
 
 
+
 def generate_response_stream(
     question: str,
     context: str | None = None,
