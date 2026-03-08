@@ -7,7 +7,7 @@ from generate import generate_response_stream
 
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI(title="closedai-chatbot APi")
+app = FastAPI(title="closedai-chatbot API")
 
 INDEX_HTML_PATH = Path(__file__).resolve().parent.parent / "index.html"
 

@@ -38,8 +38,8 @@ Create a `.env` in the project root:
 
 ```env
 API_KEY=your_openrouter_or_provider_key
-BASE_URL=https://openrouter.ai/api/v1 (or any OpenAI capable API)
-MODEL=your_chosen_model
+BASE_URL=https://openrouter.ai/api/v1 #(or any OpenAI capable API)
+LLM_MODEL=your_chosen_model
 ```
 
 Required:
