@@ -155,7 +155,7 @@
       answerBox.textContent = "";
 
       try {
-        const response = await fetch("http://localhost:8000/question", {
+        const response = await fetch("/closedai-api/question", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
