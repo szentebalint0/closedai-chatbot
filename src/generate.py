@@ -12,7 +12,7 @@ def generate_response(
     client = get_llm()
     messages: list[dict[str, str]] = []
 
-    default_context = os.getenv("SYSTEM_PROMPT", "").strip()
+    default_context = os.getenv("SYSTEM_PROMPT").strip()
     if default_context:
         messages.append({"role": "system", "content": default_context})
 
@@ -29,6 +29,7 @@ def generate_response(
     completion = client.chat.completions.create(
         model=os.getenv("LLM_MODEL"),
         messages=messages,
+        reasoning_effort="none"
     )
 
     choices = getattr(completion, "choices", None) or []
