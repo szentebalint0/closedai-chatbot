@@ -1,9 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
-from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.responses import FileResponse
 from typing import Literal
 from pathlib import Path
-from generate import generate_response_stream
+from generate import generate_response
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -26,9 +26,8 @@ class ChatMessage(BaseModel):
 
 class QuestionRequest(BaseModel):
     question: str = Field(min_length=1, max_length=4000)
-    context: str | None = Field(default=None, max_length=8000)
     history: list[ChatMessage] = Field(default_factory=list)
-    history_window: int = Field(default=6, ge=0, le=20)
+    history_window: int = Field(default=4, ge=0, le=20)
 
 
 @app.get("/")
@@ -41,15 +40,14 @@ def health() -> dict[str, str]:
 
 
 @app.post("/question")
-def question(payload: QuestionRequest) -> StreamingResponse:
+def question(payload: QuestionRequest) -> dict[str, str]:
     try:
-        token_stream = generate_response_stream(
+        answer = generate_response(
             question=payload.question,
-            context=payload.context,
             history=payload.history,
             history_window=payload.history_window,
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Generation failed: {exc}") from exc
 
-    return StreamingResponse(token_stream, media_type="text/plain; charset=utf-8")
+    return {"answer": answer}
