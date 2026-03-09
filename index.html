@@ -72,24 +72,6 @@
       box-shadow: 0 0 0 3px rgba(15, 98, 254, 0.15);
     }
 
-    #context {
-      width: 100%;
-      min-height: 96px;
-      resize: vertical;
-      font-size: 0.95rem;
-      padding: 12px 14px;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      outline: none;
-      transition: border-color 120ms ease, box-shadow 120ms ease;
-      font-family: inherit;
-    }
-
-    #context:focus {
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(15, 98, 254, 0.15);
-    }
-
     button {
       border: 0;
       border-radius: 12px;
@@ -128,7 +110,6 @@
   <main class="card">
     <h1>Ask a Question</h1>
     <div class="stack">
-      <textarea id="context" placeholder="Optional context (docs, business rules, constraints)"></textarea>
       <div class="row">
         <input id="question" type="text" placeholder="Type your question..." />
         <button id="send" type="button">Send</button>
@@ -138,30 +119,27 @@
   </main>
 
   <script>
-    const HISTORY_WINDOW = 6;
+    const HISTORY_WINDOW = 4;
     const chatHistory = [];
 
     const questionInput = document.getElementById("question");
-    const contextInput = document.getElementById("context");
     const sendButton = document.getElementById("send");
     const answerBox = document.getElementById("answer");
 
     async function askQuestion() {
       const question = questionInput.value.trim();
-      const context = contextInput.value.trim();
       if (!question) return;
 
       sendButton.disabled = true;
       answerBox.textContent = "";
 
       try {
-        const response = await fetch("/closedai-api/question", {
+        const response = await fetch("http://127.0.0.1:8000/question", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             question,
-            context: context || null,
-            history: chatHistory.slice(-(HISTORY_WINDOW * 2)),
+            history: chatHistory.slice(-HISTORY_WINDOW),
             history_window: HISTORY_WINDOW
           })
         });
@@ -171,20 +149,8 @@
           throw new Error(errorBody || `Request failed (${response.status})`);
         }
 
-        if (!response.body) {
-          throw new Error("No response stream available");
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          answerBox.textContent += decoder.decode(value, { stream: true });
-        }
-
-        answerBox.textContent += decoder.decode();
+        const data = await response.json();
+        answerBox.textContent = typeof data.answer === "string" ? data.answer : "";
         if (!answerBox.textContent.trim()) {
           answerBox.textContent = "(empty response)";
         }

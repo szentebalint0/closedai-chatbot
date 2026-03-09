@@ -1,10 +1,10 @@
 ## closedai-chatbot
 
-Small FastAPI app with a streaming `POST /question` endpoint and a static `index.html` client.
+Small FastAPI app with a `POST /question` endpoint and a static `index.html` client.
 
 ## 1. Prerequisites
 
-- Python 3.13+
+- Python 3.14+
 - `uv` installed
 
 Install `uv` (Windows PowerShell):
@@ -43,7 +43,7 @@ LLM_MODEL=your_chosen_model
 ```
 
 Required:
-- `DEFAULT_CONTEXT` (always injected as system context for every request)
+- `SYSTEM_PROMPT` (always injected as system context for every request, can be blank)
 
 ## 4. Run the API
 
@@ -71,7 +71,6 @@ Request body:
 ```json
 {
   "question": "What is Langfuse?",
-  "context": "Use only info from internal docs from 2026 Q1.",
   "history": [
     { "role": "user", "content": "What is observability?" },
     { "role": "assistant", "content": "Observability is..." }
@@ -80,17 +79,16 @@ Request body:
 }
 ```
 
-`context` is optional and is added as per-request system context.  
 `history` is optional prior chat messages.  
 `history_window` controls how many recent turns are included.
 
 Response:
-- Streaming `text/plain` chunks
+- JSON object: `{ "answer": "..." }`
 
 Example with `curl`:
 
 ```bash
 curl -N -X POST http://localhost:8000/question \
   -H "Content-Type: application/json" \
-  -d "{\"question\":\"What is Langfuse?\",\"context\":\"Explain for a non-technical manager.\",\"history\":[{\"role\":\"user\",\"content\":\"What is observability?\"},{\"role\":\"assistant\",\"content\":\"Observability is...\"}],\"history_window\":6}"
+  -d "{\"question\":\"What is Langfuse?\",\"history\":[{\"role\":\"user\",\"content\":\"What is observability?\"},{\"role\":\"assistant\",\"content\":\"Observability is...\"}],\"history_window\":6}"
 ```
