@@ -45,20 +45,20 @@ LLM_MODEL=your_chosen_model
 Required:
 - `SYSTEM_PROMPT` (always injected as system context for every request, can be blank)
 
-## 4. Run the API
+## 4. Run the API locally
 
 ```bash
-uv run uvicorn main:app --app-dir src --reload --port 8000
+uv run uvicorn main:app --app-dir src --reload --port 8080
 ```
 
 Server will be available at:
-- `http://localhost:8000`
-- Health check: `http://localhost:8000/health`
+- `http://localhost:8080`
+- Health check: `http://localhost:8080/health`
 
 ## 5. Use the static web client (`index.html`)
 
 `index.html` is in the project root and calls:
-- `http://localhost:8000/question`
+- `http://localhost:8080/question`
 
 
 ## 6. API usage (manual test)
@@ -88,7 +88,7 @@ Response:
 Example with `curl`:
 
 ```bash
-curl -N -X POST http://localhost:8000/question \
+curl -N -X POST http://localhost:8080/question \
   -H "Content-Type: application/json" \
   -d "{\"question\":\"What is Langfuse?\",\"history\":[{\"role\":\"user\",\"content\":\"What is observability?\"},{\"role\":\"assistant\",\"content\":\"Observability is...\"}],\"history_window\":6}"
 ```

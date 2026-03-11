@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from openai import OpenAI
+from langfuse import openai
 
 
 def get_llm():
@@ -12,7 +12,7 @@ def get_llm():
     if not base_url:
         raise RuntimeError("Missing base url")
 
-    return OpenAI(
+    return openai.OpenAI(
         api_key=api_key,
-        base_url=base_url,
+        base_url=base_url
     )
