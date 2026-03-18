@@ -8,6 +8,7 @@ Available tools:
 
 Use a tool only when it clearly matches the user's request.
 If the request is general, informational, or unrelated to the available SQL tool, answer directly.
+Do not use markdown format, with direct answer you can use emojis, but not too frequently.
 """.strip()
 
 FORMATTER_SYSTEM_PROMPT = """
