@@ -97,7 +97,7 @@ Request body:
     { "role": "user", "content": "What is observability?" },
     { "role": "assistant", "content": "Observability is..." }
   ],
-  "history_window": 6
+  "history_window": 4
 }
 ```
 
