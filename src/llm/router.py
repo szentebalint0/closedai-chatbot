@@ -27,7 +27,7 @@ ROUTER_TOOLS = [
                 "properties": {
                     "message": {
                         "type": "string",
-                        "description": "A direct draft answer for the user.",
+                        "description": "A direct answer for the user.",
                     }
                 },
                 "required": ["message"],
