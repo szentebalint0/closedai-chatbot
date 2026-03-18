@@ -1,4 +1,5 @@
 import os
+
 from dotenv import load_dotenv
 from langfuse import openai
 
@@ -14,5 +15,5 @@ def get_llm():
 
     return openai.OpenAI(
         api_key=api_key,
-        base_url=base_url
+        base_url=base_url,
     )
