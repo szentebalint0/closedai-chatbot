@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from fastapi.responses import FileResponse
 from typing import Literal
 from pathlib import Path
+from typing import Any
 from generate import generate_response
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,6 +31,12 @@ class QuestionRequest(BaseModel):
     history_window: int = Field(default=4, ge=0, le=20)
 
 
+class QuestionResponse(BaseModel):
+    answer: str
+    tool_used: str
+    data: dict[str, Any] | None = None
+
+
 @app.get("/")
 def get_root() -> FileResponse:
     return FileResponse(path=INDEX_HTML_PATH)
@@ -39,10 +46,10 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.post("/question")
-def question(payload: QuestionRequest) -> dict[str, str]:
+@app.post("/question", response_model=QuestionResponse)
+def question(payload: QuestionRequest) -> QuestionResponse:
     try:
-        answer = generate_response(
+        response = generate_response(
             question=payload.question,
             history=payload.history,
             history_window=payload.history_window,
@@ -50,4 +57,4 @@ def question(payload: QuestionRequest) -> dict[str, str]:
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Generation failed: {exc}") from exc
 
-    return {"answer": answer}
+    return QuestionResponse(**response)

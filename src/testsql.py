@@ -1,13 +1,10 @@
-from sqlalchemy import text
+import json
 
-from database import get_engine
+from sql_tools import get_hot_products
 
 
 def main() -> None:
-    engine = get_engine()
-    with engine.connect() as connection:
-        result = connection.execute(text("SELECT 1 AS ok"))
-        print(result.scalar_one())
+    print(json.dumps(get_hot_products(), indent=2, ensure_ascii=True))
 
 
 if __name__ == "__main__":

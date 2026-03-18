@@ -104,6 +104,18 @@
       white-space: pre-wrap;
       line-height: 1.45;
     }
+
+    #meta {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    #data {
+      margin: 12px 0 0;
+      padding-left: 20px;
+      color: var(--text);
+    }
   </style>
 </head>
 <body>
@@ -116,6 +128,8 @@
       </div>
     </div>
     <div id="answer">Your answer will appear here.</div>
+    <div id="meta"></div>
+    <ul id="data"></ul>
   </main>
 
   <script>
@@ -125,6 +139,25 @@
     const questionInput = document.getElementById("question");
     const sendButton = document.getElementById("send");
     const answerBox = document.getElementById("answer");
+    const metaBox = document.getElementById("meta");
+    const dataBox = document.getElementById("data");
+
+    function renderStructuredData(data) {
+      dataBox.innerHTML = "";
+      if (!data || !Array.isArray(data.products) || data.products.length === 0) {
+        return;
+      }
+
+      for (const product of data.products) {
+        const item = document.createElement("li");
+        const name = product.ProductName ?? "Unknown product";
+        const id = product.ProductId ?? "n/a";
+        const reserved = product.QuantityReserved ?? "n/a";
+        const price = product.BasePrice ?? "n/a";
+        item.textContent = `${name} (ID: ${id}) | Reserved: ${reserved} | Base price: ${price}`;
+        dataBox.appendChild(item);
+      }
+    }
 
     async function askQuestion() {
       const question = questionInput.value.trim();
@@ -132,6 +165,8 @@
 
       sendButton.disabled = true;
       answerBox.textContent = "";
+      metaBox.textContent = "";
+      dataBox.innerHTML = "";
 
       try {
         const response = await fetch("http://localhost:8080/question", {
@@ -151,6 +186,8 @@
 
         const data = await response.json();
         answerBox.textContent = typeof data.answer === "string" ? data.answer : "";
+        metaBox.textContent = data.tool_used ? `Tool used: ${data.tool_used}` : "";
+        renderStructuredData(data.data);
         if (!answerBox.textContent.trim()) {
           answerBox.textContent = "(empty response)";
         }
