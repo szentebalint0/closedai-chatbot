@@ -7,11 +7,10 @@ from sqlalchemy import text
 from database import get_engine
 
 GET_HOT_PRODUCTS_SQL = """SELECT TOP 5
-ProductName,
-ProductId,
-BasePrice,
-FROM DNN.dbo.hcc_LineItem
-ORDER BY QuantityReserved DESC"""
+    ProductName,
+    CAST(ROUND(BasePrice, 0) AS DECIMAL(10,0)) AS Price
+    FROM DNN.dbo.hcc_LineItem
+    ORDER BY QuantityReserved DESC"""
 
 
 def _to_json_value(value: Any) -> Any:
