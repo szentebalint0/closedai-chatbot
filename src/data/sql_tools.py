@@ -10,7 +10,6 @@ GET_HOT_PRODUCTS_SQL = """SELECT TOP 5
 ProductName,
 ProductId,
 BasePrice,
-QuantityReserved
 FROM DNN.dbo.hcc_LineItem
 ORDER BY QuantityReserved DESC"""
 

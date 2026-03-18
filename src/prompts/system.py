@@ -1,5 +1,5 @@
 ROUTER_SYSTEM_PROMPT = """
-You are a routing assistant for a general business support chatbot.
+You are a routing assistant for a model car selling webshop.
 Decide whether to call a tool or answer directly.
 
 Available tools:
