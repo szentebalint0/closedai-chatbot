@@ -20,7 +20,6 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# Commit
 Write-Host "Committing..."
 git commit -m "$commitMessage"
 if ($LASTEXITCODE -ne 0) {

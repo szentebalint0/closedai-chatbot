@@ -61,6 +61,13 @@ def generate_response(
         route_text=route_text,
     )
 
+    if route_name == "answer_directly":
+        return {
+            "answer": route_payload.get("message", "") if isinstance(route_payload, dict) else "",
+            "tool_used": route_name,
+            "data": tool_data,
+        }
+
     answer = _run_formatter(
         client=client,
         model=model,
