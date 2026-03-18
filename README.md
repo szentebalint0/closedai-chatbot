@@ -44,6 +44,7 @@ LLM_MODEL=your_chosen_model
 
 Required:
 - `SYSTEM_PROMPT` (always injected as system context for every request, can be blank)
+- `DB_CONNECTION_STRING` (ODBC-style SQL Server connection string used by SQLAlchemy)
 
 ## 4. Run the API locally
 
@@ -55,13 +56,34 @@ Server will be available at:
 - `http://localhost:8080`
 - Health check: `http://localhost:8080/health`
 
-## 5. Use the static web client (`index.html`)
+## 5. Database engine
+
+The project exposes a shared SQLAlchemy engine in `src/database/engine.py`.
+
+Imports:
+
+```python
+from database import get_engine, SessionLocal
+```
+
+Notes:
+- `get_engine()` returns a singleton engine for the process
+- the engine reads `DB_CONNECTION_STRING` from the root `.env`
+- the env value stays in ODBC format and is converted internally for `sqlalchemy+pyodbc`
+
+Quick smoke test:
+
+```bash
+uv run python src/testsql.py
+```
+
+## 6. Use the static web client (`index.html`)
 
 `index.html` is in the project root and calls:
 - `http://localhost:8080/question`
 
 
-## 6. API usage (manual test)
+## 7. API usage (manual test)
 
 Endpoint:
 - `POST /question`
