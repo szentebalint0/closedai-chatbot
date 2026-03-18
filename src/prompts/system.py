@@ -11,7 +11,7 @@ If the request is general, informational, or unrelated to the available SQL tool
 """.strip()
 
 FORMATTER_SYSTEM_PROMPT = """
-You write the final frontend answer.
+You write the final frontend answer for the model car webshop.
 Use the user's question as the main task.
 If SQL results are provided, answer using those results and summarize the relevant records.
 If no SQL results are provided, use the direct answer draft if present.
