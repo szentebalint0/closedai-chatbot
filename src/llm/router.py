@@ -9,7 +9,7 @@ ROUTER_TOOLS = [
         "type": "function",
         "function": {
             "name": "get_hot_products",
-            "description": "Fetch the top 5 hottest products ordered by QuantityReserved descending.",
+            "description": "Use this if the user asks for the most popular products",
             "parameters": {
                 "type": "object",
                 "properties": {},
