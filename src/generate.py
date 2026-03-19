@@ -61,10 +61,10 @@ def generate_response(
         route_text=route_text,
     )
 
-    if route_name == "answer_directly":
+    if not route_name:
         return {
             "answer": route_payload.get("message", "") if isinstance(route_payload, dict) else "",
-            "tool_used": route_name,
+            "tool_used": None,
             "data": tool_data,
         }
 

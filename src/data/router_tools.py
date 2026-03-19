@@ -20,6 +20,6 @@ def resolve_tool_call(
     if route_name == "get_hot_products":
         return route_name, route_payload if isinstance(route_payload, dict) else {}, {"products": get_hot_products()}
 
-    return "answer_directly", {
+    return "", {
         "message": (route_payload.get("message") if isinstance(route_payload, dict) else "") or route_text
     }, None

@@ -17,24 +17,18 @@ ROUTER_TOOLS = [
             },
         },
     },
-    #{
-    #    "type": "function",
-    #    "function": {
-    #        "name": "answer_directly",
-    #        "description": "Use this when no SQL tool is needed and a normal answer is enough.",
-    #        "parameters": {
-    #            "type": "object",
-    #            "properties": {
-    #                "message": {
-    #                    "type": "string",
-    #                    "description": "A direct answer for the user.",
-    #                }
-    #            },
-    #            "required": ["message"],
-    #            "additionalProperties": False,
-    #        },
-    #    },
-    #},
+    {
+        "type": "function",
+        "function": {
+            "name": "get_recommendation",
+            "description": "Use this if the user ask for any recommendation about products",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False,
+            },
+        },
+    }
 ]
 
 
@@ -53,16 +47,16 @@ def run_router_model(
 
     choices = getattr(completion, "choices", None) or []
     if not choices:
-        return "answer_directly", {"message": ""}, ""
+        return None, {}, ""
 
     message = getattr(choices[0], "message", None)
     if message is None:
-        return "answer_directly", {"message": ""}, ""
+        return None, {}, ""
 
     tool_calls = getattr(message, "tool_calls", None) or []
     if not tool_calls:
         text = extract_text_content(message)
-        return "answer_directly", {"message": text}, text
+        return None, {}, text
 
     tool_call = tool_calls[0]
     function = getattr(tool_call, "function", None)

@@ -13,6 +13,12 @@ FROM DNN.dbo.hcc_LineItem
 Group By ProductName, BasePrice, QuantityReserved
 ORDER BY QuantityReserved DESC"""
 
+GET_RECOMMENDATION_SQL = """
+
+
+"""
+
+
 
 def _to_json_value(value: Any) -> Any:
     if isinstance(value, Decimal):
@@ -21,14 +27,20 @@ def _to_json_value(value: Any) -> Any:
         return value.isoformat()
     return value
 
-
-def get_hot_products() -> list[dict[str, Any]]:
+def _run_query(sql: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     engine = get_engine()
     with engine.connect() as connection:
-        result = connection.execute(text(GET_HOT_PRODUCTS_SQL))
+        result = connection.execute(text(sql))
         rows = result.mappings().all()
 
     return [
         {key: _to_json_value(value) for key, value in row.items()}
         for row in rows
     ]
+
+
+def get_hot_products() -> list[dict[str, Any]]:
+    return _run_query(GET_HOT_PRODUCTS_SQL)
+
+def get_recommendation() -> list[dict[str, Any]]:
+    return _run_query(GET_RECOMMENDATION_SQL)
