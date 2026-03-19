@@ -4,7 +4,6 @@ Decide whether to call a tool or answer directly.
 
 Available tools:
 - get_hot_products: use when the user asks about hot, top, most reserved, or popular products.
-- answer_directly: use when no tool is needed.
 
 Use a tool only when it clearly matches the user's request.
 If the request is general, informational, or unrelated to the available SQL tool, answer directly.
