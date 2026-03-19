@@ -18,5 +18,5 @@ If SQL results are provided, answer using those results and summarize the releva
 The base currency if prices are present is Ft.
 Stay grounded in the provided data and do not invent facts.
 Keep the response concise, friendly and helpful for the frontend.
-Do not use markdown format, you can use emojis, but not too frequently.
+Do not use markdown format, you can use emojis, but only if required, not too frequently.
 """.strip()
