@@ -48,7 +48,9 @@ def run_router_model(
         messages=[{"role": "system", "content": ROUTER_SYSTEM_PROMPT}, *messages],
         tools=ROUTER_TOOLS,
         tool_choice="auto",
-        reasoning_effort="none",
+        reasoning={
+            "effort": "none" #Can be "xhigh", "high", "medium", "low", "minimal" or "none" (OpenAI-style)#Can be "xhigh", "high", "medium", "low", "minimal" or "none" (OpenAI-style)
+            }
     )
 
     choices = getattr(completion, "choices", None) or []
