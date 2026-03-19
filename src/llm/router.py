@@ -17,24 +17,24 @@ ROUTER_TOOLS = [
             },
         },
     },
-    {
-        "type": "function",
-        "function": {
-            "name": "answer_directly",
-            "description": "Use this when no SQL tool is needed and a normal answer is enough.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "message": {
-                        "type": "string",
-                        "description": "A direct answer for the user.",
-                    }
-                },
-                "required": ["message"],
-                "additionalProperties": False,
-            },
-        },
-    },
+    #{
+    #    "type": "function",
+    #    "function": {
+    #        "name": "answer_directly",
+    #        "description": "Use this when no SQL tool is needed and a normal answer is enough.",
+    #        "parameters": {
+    #            "type": "object",
+    #            "properties": {
+    #                "message": {
+    #                    "type": "string",
+    #                    "description": "A direct answer for the user.",
+    #                }
+    #            },
+    #            "required": ["message"],
+    #            "additionalProperties": False,
+    #        },
+    #    },
+    #},
 ]
 
 
