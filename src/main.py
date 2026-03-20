@@ -33,7 +33,7 @@ class QuestionRequest(BaseModel):
 
 class QuestionResponse(BaseModel):
     answer: str
-    tool_used: str
+    tool_used: str | None = None
     data: dict[str, Any] | None = None
 
 
