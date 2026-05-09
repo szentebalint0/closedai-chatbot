@@ -9,7 +9,6 @@
 - Mutass olcsó Porsche modelleket.
 - Melyik a legolcsóbb Lamborghini?
 - Van 20000 és 30000 Ft közötti Porsche modell?
-- Mutass 25000 Ft alatti modelleket.
 - Mutass 30000 Ft feletti BMW modelleket.
 - 2023-mas modellt keresek
 - Mutass Porsche modelleket.
@@ -27,7 +26,7 @@
 - Kellene valami menő.
 - Mi a legjobb?
 
-Negativce tests:
+Negative tests:
 
 - Pontosan hány darabot adtatok el az MC-005-ből?
 - Melyik termékből mennyi van lefoglalva?
