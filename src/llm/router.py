@@ -110,12 +110,28 @@ ROUTER_TOOLS = [
         "type": "function",
         "function": {
             "name": "get_discounted_products",
-            "description": "List products that currently have a lower site price than list price.",
+            "description": "List products that currently have a lower site price than list price. Use only for sale, discount, akcio, or kedvezmeny requests, not merely cheap products.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "limit": {"type": "integer", "minimum": 1, "maximum": 20},
                     "category": {"type": "string", "description": "Optional category filter."},
+                },
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_budget_products",
+            "description": "List the cheapest currently orderable products. Use for cheap, low-price, affordable, budget, olcso, olcsobb, or legolcsobb requests without an explicit price range. Optional query filters by brand, type, scale, SKU, color, or attributes; category is only for actual category names.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 20},
+                    "query": {"type": "string", "description": "Optional free-text product filter such as brand, type, scale, color, SKU, or attributes."},
+                    "category": {"type": "string", "description": "Optional actual category name."},
                 },
                 "additionalProperties": False,
             },

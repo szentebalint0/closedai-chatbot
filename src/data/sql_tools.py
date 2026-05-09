@@ -1,3 +1,4 @@
+import html
 import re
 import unicodedata
 from datetime import date, datetime
@@ -30,6 +31,9 @@ DEFAULT_LIMIT = 5
 MAX_SEARCH_TOKENS = 8
 ACTIVE_PRODUCT_CONDITION = "p.Status = 1"
 TOKEN_PATTERN = re.compile(r"[^\W_]+", re.UNICODE)
+HTML_TAG_PATTERN = re.compile(r"<[^>]+>")
+HTML_BLOCK_PATTERN = re.compile(r"<(script|style)[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL)
+WHITESPACE_PATTERN = re.compile(r"\s+")
 SEARCH_STOP_TOKENS = {
     "a",
     "az",
@@ -46,6 +50,16 @@ SEARCH_STOP_TOKENS = {
     "keresek",
     "mutass",
     "ajanlj",
+    "ajanl",
+    "ajanlas",
+    "olcso",
+    "olcsobb",
+    "olcsot",
+    "legolcsobb",
+    "budget",
+    "cheap",
+    "cheaper",
+    "cheapest",
     "szeretnek",
     "van",
     "ar",
@@ -74,22 +88,74 @@ SEARCH_TOKEN_SYNONYMS = {
 }
 
 GET_HOT_PRODUCTS_SQL = f"""SELECT TOP 5
-    li.ProductId AS product_id,
-    li.ProductSku AS sku,
-    li.ProductName AS name,
-    SUM(li.Quantity) AS quantity_ordered,
-    CAST(ROUND(AVG(li.BasePrice), 0) AS DECIMAL(18, 0)) AS average_price
-FROM {LINE_ITEM_TABLE} li
-INNER JOIN {ORDER_TABLE} o
-    ON o.bvin = li.OrderBvin
-    AND o.StoreId = li.StoreId
+    ranked.product_id,
+    p.SKU AS sku,
+    ptx.ProductName AS name,
+    cat.categories AS categories,
+    CAST(ROUND(p.SitePrice, 0) AS DECIMAL(18, 0)) AS price,
+    CAST(p.IsAvailableForSale AS bit) AS is_available_for_sale,
+    CAST(0 AS bit) AS stock_is_tracked,
+    CASE
+        WHEN p.IsAvailableForSale = 0 THEN 'not_available'
+        ELSE 'available'
+    END AS availability_status,
+    ranked.popularity_rank
+FROM (
+    SELECT
+        li.ProductId AS product_id,
+        ROW_NUMBER() OVER (ORDER BY SUM(li.Quantity) DESC, li.ProductName) AS popularity_rank
+    FROM {LINE_ITEM_TABLE} li
+    INNER JOIN {ORDER_TABLE} o
+        ON o.bvin = li.OrderBvin
+        AND o.StoreId = li.StoreId
+    INNER JOIN {PRODUCT_TABLE} p
+        ON p.bvin = li.ProductId
+        AND p.StoreId = li.StoreId
+    WHERE o.IsPlaced = 1
+        AND {ACTIVE_PRODUCT_CONDITION}
+    GROUP BY li.ProductId, li.ProductName
+) ranked
 INNER JOIN {PRODUCT_TABLE} p
-    ON p.bvin = li.ProductId
-    AND p.StoreId = li.StoreId
-WHERE o.IsPlaced = 1
-    AND {ACTIVE_PRODUCT_CONDITION}
-GROUP BY li.ProductId, li.ProductSku, li.ProductName
-ORDER BY SUM(li.Quantity) DESC, li.ProductName"""
+    ON p.bvin = ranked.product_id
+OUTER APPLY (
+    SELECT TOP 1 tr.ProductName
+    FROM {PRODUCT_TRANSLATION_TABLE} tr
+    WHERE tr.ProductId = p.bvin
+    ORDER BY
+        CASE
+            WHEN tr.Culture IN ('hu-HU', 'hu') THEN 0
+            WHEN tr.Culture IN ('en-US', 'en') THEN 1
+            ELSE 2
+        END,
+        tr.ProductTranslationId
+) ptx
+OUTER APPLY (
+    SELECT STUFF((
+        SELECT ', ' + COALESCE(c_name.Name, CONVERT(nvarchar(36), c.bvin))
+        FROM {PRODUCT_CATEGORY_TABLE} pxc
+        INNER JOIN {CATEGORY_TABLE} c
+            ON c.bvin = pxc.CategoryId
+            AND c.StoreId = pxc.StoreId
+        OUTER APPLY (
+            SELECT TOP 1 ctr.Name
+            FROM {CATEGORY_TRANSLATION_TABLE} ctr
+            WHERE ctr.CategoryId = c.bvin
+            ORDER BY
+                CASE
+                    WHEN ctr.Culture IN ('hu-HU', 'hu') THEN 0
+                    WHEN ctr.Culture IN ('en-US', 'en') THEN 1
+                    ELSE 2
+                END,
+                ctr.CategoryTranslationId
+        ) c_name
+        WHERE pxc.ProductId = p.bvin
+            AND pxc.StoreId = p.StoreId
+            AND c.Hidden = 0
+        ORDER BY pxc.SortOrder, c_name.Name
+        FOR XML PATH(''), TYPE
+    ).value('.', 'nvarchar(max)'), 1, 2, '') AS categories
+) cat
+ORDER BY ranked.popularity_rank"""
 
 PRODUCT_SUMMARY_FIELDS = """
     p.bvin AS product_id,
@@ -138,7 +204,7 @@ PRODUCT_SUMMARY_FIELDS = """
 """.strip()
 
 PRODUCT_DETAIL_FIELDS = f"""{PRODUCT_SUMMARY_FIELDS},
-    CAST(LEFT(ptx.LongDescription, 1200) AS nvarchar(1200)) AS long_description,
+    CAST(LEFT(ptx.LongDescription, 4000) AS nvarchar(4000)) AS long_description,
     ptx.MetaTitle AS meta_title,
     ptx.MetaDescription AS meta_description,
     ptx.Keywords AS keywords,
@@ -283,6 +349,22 @@ def _to_json_value(value: Any) -> Any:
     return value
 
 
+def _clean_html_text(value: str, max_length: int = 1200) -> str:
+    without_blocks = HTML_BLOCK_PATTERN.sub(" ", value)
+    without_tags = HTML_TAG_PATTERN.sub(" ", without_blocks)
+    cleaned = WHITESPACE_PATTERN.sub(" ", html.unescape(without_tags)).strip()
+    return cleaned[:max_length].strip()
+
+
+def _clean_row_value(key: str, value: Any) -> Any:
+    json_value = _to_json_value(value)
+    if not isinstance(json_value, str):
+        return json_value
+    if key in {"long_description", "short_description", "meta_description", "properties"}:
+        return _clean_html_text(json_value)
+    return json_value
+
+
 def _run_query(sql: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     engine = get_engine()
     with engine.connect() as connection:
@@ -290,7 +372,7 @@ def _run_query(sql: str, params: dict[str, Any] | None = None) -> list[dict[str,
         rows = result.mappings().all()
 
     return [
-        {key: _to_json_value(value) for key, value in row.items()}
+        {key: _clean_row_value(key, value) for key, value in row.items()}
         for row in rows
     ]
 
@@ -740,6 +822,34 @@ ORDER BY p.SitePrice ASC, ptx.ProductName"""
     return _run_query(sql, params)
 
 
+def get_budget_products(
+    limit: Any = DEFAULT_LIMIT,
+    query: str | None = None,
+    category: str | None = None,
+) -> list[dict[str, Any]]:
+    params: dict[str, Any] = {"limit": _coerce_limit(limit, default=10)}
+    conditions = [
+        ACTIVE_PRODUCT_CONDITION,
+        "p.IsAvailableForSale = 1",
+        "p.SitePrice > 0",
+    ]
+
+    query = _clean_text(query)
+    if query:
+        conditions.append(_search_condition(query, params))
+
+    category = _clean_text(category)
+    if category:
+        conditions.append(_category_filter_condition(category, params))
+
+    sql = f"""SELECT TOP (:limit)
+    {PRODUCT_SUMMARY_FIELDS}
+{PRODUCT_FROM_FRAGMENT}
+WHERE {" AND ".join(conditions)}
+ORDER BY p.SitePrice ASC, ptx.ProductName"""
+    return _run_query(sql, params)
+
+
 def get_product_details(
     product_id: str | None = None,
     name: str | None = None,
@@ -863,5 +973,4 @@ ORDER BY ptx.ProductName"""
 
 
 def get_recommendation() -> list[dict[str, Any]]:
-    discounted = get_discounted_products(limit=DEFAULT_LIMIT)
-    return discounted or get_hot_products()
+    return get_hot_products()

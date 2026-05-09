@@ -2,6 +2,7 @@ from typing import Any, Callable
 
 from data.sql_tools import (
     compare_products,
+    get_budget_products,
     get_discounted_products,
     get_hot_products,
     get_product_by_name,
@@ -17,6 +18,16 @@ from data.sql_tools import (
 from llm.router import run_router_model
 
 ToolHandler = Callable[[dict[str, Any]], Any]
+SENSITIVE_RESPONSE_KEYS = {
+    "product_id",
+    "quantity_ordered",
+    "quantity_reserved",
+    "quantity_on_hand",
+    "quantity_available",
+    "low_stock_point",
+    "popularity_rank",
+    "discount_amount",
+}
 
 
 def run_router(
@@ -67,6 +78,13 @@ TOOL_HANDLERS: dict[str, ToolHandler] = {
             category=payload.get("category"),
         )
     },
+    "get_budget_products": lambda payload: {
+        "products": get_budget_products(
+            limit=payload.get("limit"),
+            query=payload.get("query"),
+            category=payload.get("category"),
+        )
+    },
     "get_products_by_price_range": lambda payload: {
         "products": get_products_by_price_range(
             min_price=payload.get("min_price"),
@@ -96,6 +114,18 @@ TOOL_HANDLERS: dict[str, ToolHandler] = {
 }
 
 
+def _public_tool_data(value: Any) -> Any:
+    if isinstance(value, list):
+        return [_public_tool_data(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: _public_tool_data(item)
+            for key, item in value.items()
+            if key not in SENSITIVE_RESPONSE_KEYS
+        }
+    return value
+
+
 def resolve_tool_call(
     route_name: str | None,
     route_payload: Any,
@@ -116,4 +146,4 @@ def resolve_tool_call(
     except ValueError as exc:
         return "", _missing_result(str(exc)), None
 
-    return route_name, payload, tool_data
+    return route_name, payload, _public_tool_data(tool_data)
