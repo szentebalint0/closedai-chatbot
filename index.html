@@ -144,19 +144,65 @@
 
     function renderStructuredData(data) {
       dataBox.innerHTML = "";
-      if (!data || !Array.isArray(data.products) || data.products.length === 0) {
+      if (!data || typeof data !== "object") {
         return;
       }
 
-      for (const product of data.products) {
+      const records = [];
+      if (Array.isArray(data.products)) {
+        records.push(...data.products);
+      }
+      for (const key of ["product", "stock", "price"]) {
+        if (data[key] && typeof data[key] === "object") {
+          records.push(data[key]);
+        }
+      }
+
+      if (records.length === 0) {
+        return;
+      }
+
+      for (const product of records) {
         const item = document.createElement("li");
-        const name = product.ProductName ?? "Unknown product";
-        const id = product.ProductId ?? "n/a";
-        const reserved = product.QuantityReserved ?? "n/a";
-        const price = product.BasePrice ?? "n/a";
-        item.textContent = `${name} (ID: ${id}) | Reserved: ${reserved} | Base price: ${price}`;
+        item.textContent = formatProductRecord(product);
         dataBox.appendChild(item);
       }
+    }
+
+    function firstValue(record, keys, fallback = "n/a") {
+      for (const key of keys) {
+        const value = record[key];
+        if (value !== undefined && value !== null && value !== "") {
+          return value;
+        }
+      }
+      return fallback;
+    }
+
+    function formatMoney(value) {
+      if (value === "n/a") return value;
+      const numberValue = Number(value);
+      if (!Number.isFinite(numberValue)) return value;
+      return `${Math.round(numberValue).toLocaleString("hu-HU")} Ft`;
+    }
+
+    function formatProductRecord(product) {
+      const name = firstValue(product, ["name", "ProductName"], "Unknown product");
+      const id = firstValue(product, ["product_id", "ProductId", "id"], "n/a");
+      const sku = firstValue(product, ["sku", "SKU", "ProductSku"]);
+      const category = firstValue(product, ["categories", "category"]);
+      const status = firstValue(product, ["availability_status"]);
+      const price = firstValue(product, ["price", "average_price", "BasePrice"]);
+      const ordered = firstValue(product, ["quantity_ordered", "QuantityOrdered"]);
+
+      const parts = [`${name} (ID: ${id})`];
+      if (sku !== "n/a") parts.push(`SKU: ${sku}`);
+      if (category !== "n/a") parts.push(`Category: ${category}`);
+      if (price !== "n/a") parts.push(`Price: ${formatMoney(price)}`);
+      if (ordered !== "n/a") parts.push(`Ordered: ${ordered}`);
+      if (status !== "n/a") parts.push(`Status: ${status}`);
+
+      return parts.join(" | ");
     }
 
     async function askQuestion() {

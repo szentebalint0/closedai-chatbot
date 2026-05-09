@@ -1,3 +1,5 @@
+import re
+import unicodedata
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
@@ -25,7 +27,51 @@ ORDER_TABLE = "[dbo].[hcc_Order]"
 
 MAX_LIMIT = 20
 DEFAULT_LIMIT = 5
+MAX_SEARCH_TOKENS = 8
 ACTIVE_PRODUCT_CONDITION = "p.Status = 1"
+TOKEN_PATTERN = re.compile(r"[^\W_]+", re.UNICODE)
+SEARCH_STOP_TOKENS = {
+    "a",
+    "az",
+    "egy",
+    "es",
+    "vagy",
+    "modell",
+    "model",
+    "auto",
+    "car",
+    "termek",
+    "product",
+    "keres",
+    "keresek",
+    "mutass",
+    "ajanlj",
+    "szeretnek",
+    "van",
+    "ar",
+    "ara",
+    "keszlet",
+    "raktar",
+    "raktaron",
+}
+SEARCH_TOKEN_SYNONYMS = {
+    "arany": ["gold"],
+    "barna": ["brown"],
+    "ezust": ["silver"],
+    "feher": ["white"],
+    "fekete": ["black"],
+    "kek": ["blue"],
+    "klasszikus": ["classic"],
+    "lila": ["purple"],
+    "narancs": ["orange"],
+    "piros": ["red"],
+    "sarga": ["yellow"],
+    "szurke": ["grey", "gray"],
+    "verseny": ["race", "racing"],
+    "versenyauto": ["race", "racing"],
+    "voros": ["red"],
+    "zold": ["green"],
+}
 
 GET_HOT_PRODUCTS_SQL = f"""SELECT TOP 5
     li.ProductId AS product_id,
@@ -257,6 +303,64 @@ def _clean_text(value: Any) -> str:
     return str(value or "").strip()
 
 
+def _escape_like_value(value: str) -> str:
+    return (
+        value
+        .replace("~", "~~")
+        .replace("[", "~[")
+        .replace("%", "~%")
+        .replace("_", "~_")
+    )
+
+
+def _like_pattern(value: str) -> str:
+    return f"%{_escape_like_value(value)}%"
+
+
+def _prefix_like_pattern(value: str) -> str:
+    return f"{_escape_like_value(value)}%"
+
+
+def _normalize_search_token(value: str) -> str:
+    return (
+        unicodedata.normalize("NFKD", value.casefold())
+        .encode("ascii", "ignore")
+        .decode("ascii")
+    )
+
+
+def _search_tokens(value: str) -> list[str]:
+    tokens: list[str] = []
+    seen: set[str] = set()
+    for match in TOKEN_PATTERN.findall(value):
+        token = match.strip()
+        normalized = _normalize_search_token(token)
+        if not normalized or normalized in seen:
+            continue
+        if normalized in SEARCH_STOP_TOKENS:
+            continue
+        if len(token) < 2 and not token.isdigit():
+            continue
+        seen.add(normalized)
+        tokens.append(token)
+        if len(tokens) >= MAX_SEARCH_TOKENS:
+            break
+    return tokens
+
+
+def _token_alternatives(token: str) -> list[str]:
+    alternatives: list[str] = []
+    seen: set[str] = set()
+    for value in [token, _normalize_search_token(token), *SEARCH_TOKEN_SYNONYMS.get(_normalize_search_token(token), [])]:
+        value = value.strip()
+        normalized = value.casefold()
+        if not value or normalized in seen:
+            continue
+        seen.add(normalized)
+        alternatives.append(value)
+    return alternatives
+
+
 def _coerce_limit(value: Any, default: int = DEFAULT_LIMIT, maximum: int = MAX_LIMIT) -> int:
     try:
         limit = int(value)
@@ -286,61 +390,15 @@ def _as_list(value: Any) -> list[str]:
     ]
 
 
-def _product_identity_condition(
-    product_id: str | None,
-    name: str | None,
-    params: dict[str, Any],
-) -> str:
-    conditions: list[str] = []
-    if product_id:
-        params["product_id"] = product_id
-        conditions.append("(CONVERT(nvarchar(36), p.bvin) = :product_id OR p.SKU = :product_id)")
-    if name:
-        params["name"] = name
-        params["name_pattern"] = f"%{name}%"
-        conditions.append(
-            "(ptx.ProductName = :name OR p.SKU = :name OR ptx.ProductName LIKE :name_pattern)"
-        )
-    if not conditions:
-        raise ValueError("Hianyzik a termek azonositoja vagy neve.")
-    return "(" + " OR ".join(conditions) + ")"
-
-
-def _category_filter_condition(category: str, params: dict[str, Any]) -> str:
-    params["category"] = category
-    params["category_pattern"] = f"%{category}%"
-    return f"""EXISTS (
-        SELECT 1
-        FROM {PRODUCT_CATEGORY_TABLE} pxc_filter
-        INNER JOIN {CATEGORY_TABLE} c_filter
-            ON c_filter.bvin = pxc_filter.CategoryId
-            AND c_filter.StoreId = pxc_filter.StoreId
-        WHERE pxc_filter.ProductId = p.bvin
-            AND pxc_filter.StoreId = p.StoreId
-            AND c_filter.Hidden = 0
-            AND (
-                CONVERT(nvarchar(36), c_filter.bvin) = :category
-                OR EXISTS (
-                    SELECT 1
-                    FROM {CATEGORY_TRANSLATION_TABLE} ct_filter
-                    WHERE ct_filter.CategoryId = c_filter.bvin
-                        AND ct_filter.Name LIKE :category_pattern
-                )
-            )
-    )"""
-
-
-def _search_condition(query: str, params: dict[str, Any]) -> str:
-    params["query"] = query
-    params["query_pattern"] = f"%{query}%"
+def _text_match_condition(pattern_param: str) -> str:
     return f"""(
-        ptx.ProductName LIKE :query_pattern
-        OR p.SKU LIKE :query_pattern
-        OR ptx.ShortDescription LIKE :query_pattern
-        OR ptx.LongDescription LIKE :query_pattern
-        OR ptx.Keywords LIKE :query_pattern
-        OR m.DisplayName LIKE :query_pattern
-        OR pttx.ProductTypeName LIKE :query_pattern
+        ptx.ProductName LIKE :{pattern_param} ESCAPE '~'
+        OR p.SKU LIKE :{pattern_param} ESCAPE '~'
+        OR ptx.ShortDescription LIKE :{pattern_param} ESCAPE '~'
+        OR ptx.LongDescription LIKE :{pattern_param} ESCAPE '~'
+        OR ptx.Keywords LIKE :{pattern_param} ESCAPE '~'
+        OR m.DisplayName LIKE :{pattern_param} ESCAPE '~'
+        OR pttx.ProductTypeName LIKE :{pattern_param} ESCAPE '~'
         OR EXISTS (
             SELECT 1
             FROM {PRODUCT_CATEGORY_TABLE} pxc_search
@@ -351,7 +409,7 @@ def _search_condition(query: str, params: dict[str, Any]) -> str:
                 ON ct_search.CategoryId = c_search.bvin
             WHERE pxc_search.ProductId = p.bvin
                 AND pxc_search.StoreId = p.StoreId
-                AND ct_search.Name LIKE :query_pattern
+                AND ct_search.Name LIKE :{pattern_param} ESCAPE '~'
         )
         OR EXISTS (
             SELECT 1
@@ -366,13 +424,107 @@ def _search_condition(query: str, params: dict[str, Any]) -> str:
             WHERE ppv_search.ProductBvin = p.bvin
                 AND ppv_search.StoreId = p.StoreId
                 AND (
-                    ppv_search.PropertyValue LIKE :query_pattern
-                    OR ppvt_search.PropertyLocalizableValue LIKE :query_pattern
-                    OR ppt_search.DisplayName LIKE :query_pattern
-                    OR pp_search.PropertyName LIKE :query_pattern
+                    ppv_search.PropertyValue LIKE :{pattern_param} ESCAPE '~'
+                    OR ppvt_search.PropertyLocalizableValue LIKE :{pattern_param} ESCAPE '~'
+                    OR ppt_search.DisplayName LIKE :{pattern_param} ESCAPE '~'
+                    OR pp_search.PropertyName LIKE :{pattern_param} ESCAPE '~'
                 )
         )
     )"""
+
+
+def _tokenized_text_match_condition(
+    value: str,
+    params: dict[str, Any],
+    prefix: str,
+) -> str:
+    tokens = _search_tokens(value)
+    if not tokens:
+        return ""
+
+    token_conditions: list[str] = []
+    for index, token in enumerate(tokens):
+        alternative_conditions: list[str] = []
+        for alternative_index, alternative in enumerate(_token_alternatives(token)):
+            key = f"{prefix}_token_{index}_{alternative_index}"
+            params[key] = _like_pattern(alternative)
+            alternative_conditions.append(_text_match_condition(key))
+        token_conditions.append("(" + " OR ".join(alternative_conditions) + ")")
+
+    return "(" + " AND ".join(token_conditions) + ")"
+
+
+def _category_name_match_condition(pattern_param: str) -> str:
+    return f"""EXISTS (
+        SELECT 1
+        FROM {CATEGORY_TRANSLATION_TABLE} ct_filter
+        WHERE ct_filter.CategoryId = c_filter.bvin
+            AND ct_filter.Name LIKE :{pattern_param} ESCAPE '~'
+    )"""
+
+
+def _product_identity_condition(
+    product_id: str | None,
+    name: str | None,
+    params: dict[str, Any],
+) -> str:
+    conditions: list[str] = []
+    if product_id:
+        params["product_id"] = product_id
+        conditions.append("(CONVERT(nvarchar(36), p.bvin) = :product_id OR p.SKU = :product_id)")
+    if name:
+        params["name"] = name
+        params["name_pattern"] = _like_pattern(name)
+        conditions.append(
+            "(ptx.ProductName = :name OR p.SKU = :name OR ptx.ProductName LIKE :name_pattern ESCAPE '~')"
+        )
+        tokenized_condition = _tokenized_text_match_condition(name, params, "name")
+        if tokenized_condition:
+            conditions.append(tokenized_condition)
+    if not conditions:
+        raise ValueError("Hianyzik a termek azonositoja vagy neve.")
+    return "(" + " OR ".join(conditions) + ")"
+
+
+def _category_filter_condition(category: str, params: dict[str, Any]) -> str:
+    params["category"] = category
+    params["category_pattern"] = _like_pattern(category)
+    category_name_conditions = [_category_name_match_condition("category_pattern")]
+    tokens = _search_tokens(category)
+    if tokens:
+        for index, token in enumerate(tokens):
+            alternative_conditions: list[str] = []
+            for alternative_index, alternative in enumerate(_token_alternatives(token)):
+                key = f"category_token_{index}_{alternative_index}"
+                params[key] = _like_pattern(alternative)
+                alternative_conditions.append(_category_name_match_condition(key))
+            category_name_conditions.append("(" + " OR ".join(alternative_conditions) + ")")
+
+    return f"""EXISTS (
+        SELECT 1
+        FROM {PRODUCT_CATEGORY_TABLE} pxc_filter
+        INNER JOIN {CATEGORY_TABLE} c_filter
+            ON c_filter.bvin = pxc_filter.CategoryId
+            AND c_filter.StoreId = pxc_filter.StoreId
+        WHERE pxc_filter.ProductId = p.bvin
+            AND pxc_filter.StoreId = p.StoreId
+            AND c_filter.Hidden = 0
+            AND (
+                CONVERT(nvarchar(36), c_filter.bvin) = :category
+                OR {category_name_conditions[0]}
+                OR ({" AND ".join(category_name_conditions[1:]) if len(category_name_conditions) > 1 else "1 = 0"})
+            )
+    )"""
+
+
+def _search_condition(query: str, params: dict[str, Any]) -> str:
+    params["query"] = query
+    params["query_pattern"] = _like_pattern(query)
+    full_phrase_condition = _text_match_condition("query_pattern")
+    tokenized_condition = _tokenized_text_match_condition(query, params, "query")
+    if not tokenized_condition:
+        return full_phrase_condition
+    return f"({full_phrase_condition} OR {tokenized_condition})"
 
 
 def get_hot_products() -> list[dict[str, Any]]:
@@ -395,7 +547,7 @@ ORDER BY
     CASE
         WHEN ptx.ProductName = :name THEN 0
         WHEN p.SKU = :name THEN 1
-        WHEN ptx.ProductName LIKE :name_pattern THEN 2
+        WHEN ptx.ProductName LIKE :name_pattern ESCAPE '~' THEN 2
         ELSE 3
     END,
     ptx.ProductName"""
@@ -409,7 +561,7 @@ def search_products(query: str, limit: Any = DEFAULT_LIMIT) -> list[dict[str, An
 
     params: dict[str, Any] = {"limit": _coerce_limit(limit)}
     search_condition = _search_condition(query, params)
-    params["query_prefix"] = f"{query}%"
+    params["query_prefix"] = _prefix_like_pattern(query)
 
     sql = f"""SELECT TOP (:limit)
     {PRODUCT_SUMMARY_FIELDS}
@@ -420,8 +572,9 @@ ORDER BY
     CASE
         WHEN ptx.ProductName = :query THEN 0
         WHEN p.SKU = :query THEN 1
-        WHEN ptx.ProductName LIKE :query_prefix THEN 2
-        ELSE 3
+        WHEN ptx.ProductName LIKE :query_prefix ESCAPE '~' THEN 2
+        WHEN ptx.ProductName LIKE :query_pattern ESCAPE '~' THEN 3
+        ELSE 4
     END,
     ptx.ProductName"""
     return _run_query(sql, params)
@@ -692,8 +845,12 @@ def compare_products(
 
     for index, product_name in enumerate(product_names):
         key = f"name_{index}"
-        params[key] = f"%{product_name}%"
-        conditions.append(f"ptx.ProductName LIKE :{key}")
+        params[key] = _like_pattern(product_name)
+        condition = f"ptx.ProductName LIKE :{key} ESCAPE '~'"
+        tokenized_condition = _tokenized_text_match_condition(product_name, params, key)
+        if tokenized_condition:
+            condition = f"({condition} OR {tokenized_condition})"
+        conditions.append(condition)
 
     sql = f"""SELECT TOP (:limit)
     {PRODUCT_DETAIL_FIELDS}
