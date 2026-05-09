@@ -25,6 +25,7 @@ SENSITIVE_RESPONSE_KEYS = {
     "quantity_on_hand",
     "quantity_available",
     "low_stock_point",
+    "stock_is_tracked",
     "popularity_rank",
     "discount_amount",
 }
