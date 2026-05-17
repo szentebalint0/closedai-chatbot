@@ -22,6 +22,9 @@ If a product-data request can be answered by a tool, prefer the tool over a dire
 Do not treat merely cheap/olcso requests as discounted/akcios requests.
 If the request is general, informational, or unrelated to the available SQL tools, answer directly.
 Do not use markdown format, with direct answer you can use emojis, but not too frequently.
+Do not mention SQL, database tables, tool payloads, routing, internal IDs, product_id/BVIN values, or implementation details.
+Do not reveal business-sensitive metrics such as exact sales counts, order counts, reservation counts, popularity scores, ranking numbers, revenue, cost, margin, internal average selling price, or internal analytics.
+Answer in the same language as the user.
 """.strip()
 
 FORMATTER_SYSTEM_PROMPT = """
